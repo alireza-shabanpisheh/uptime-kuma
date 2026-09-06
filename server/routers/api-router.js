@@ -723,18 +723,66 @@ router.get("/api/ai-report", async (request, response) => {
         const avgUptime = totalMonitors > 0 ? report.reduce((sum, m) => sum + m.uptimePercent, 0) / totalMonitors : 0;
         const totalDownEvents = report.reduce((sum, m) => sum + m.downEvents, 0);
 
+        const statsPayload = {
+            generatedAt: dayjs().toISOString(),
+            period: "7 days",
+            summary: {
+                totalMonitors,
+                avgUptime: parseFloat(avgUptime.toFixed(2)),
+                totalDownEvents,
+            },
+            monitors: report,
+        };
+
+        const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+
+        if (!openRouterApiKey) {
+            response.json({
+                ok: true,
+                data: statsPayload,
+                aiAnalysis: null,
+                warning: "OPENROUTER_API_KEY is not configured. Stats are available, but AI analysis is disabled.",
+            });
+            return;
+        }
+
+        const promptLines = [
+            "You are an infrastructure reliability analyst. Generate a concise weekly service report based on the following JSON stats.",
+            "Focus on: overall health, worst-performing monitors, recurring down events, and actionable recommendations.",
+            "Keep it under 300 words. Use clear headings and bullet points.",
+            "",
+            JSON.stringify(statsPayload, null, 2),
+        ];
+        const prompt = promptLines.join("\n");
+
+        const openRouterResponse = await axios.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            {
+                model: "google/gemini-flash-1.5",
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt,
+                    },
+                ],
+                max_tokens: 1024,
+                temperature: 0.3,
+            },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${openRouterApiKey}`,
+                },
+                timeout: 60000,
+            }
+        );
+
+        const aiMessage = openRouterResponse.data?.choices?.[0]?.message?.content || "No analysis generated.";
+
         response.json({
             ok: true,
-            data: {
-                generatedAt: dayjs().toISOString(),
-                period: "7 days",
-                summary: {
-                    totalMonitors,
-                    avgUptime: parseFloat(avgUptime.toFixed(2)),
-                    totalDownEvents,
-                },
-                monitors: report,
-            },
+            data: statsPayload,
+            aiAnalysis: aiMessage,
         });
     } catch (error) {
         sendHttpError(response, error.message);
