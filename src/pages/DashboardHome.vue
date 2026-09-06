@@ -150,7 +150,7 @@
                         </div>
                         <div v-if="aiReportResult.aiAnalysis" class="mt-3">
                             <h6>{{ $t("AI Analysis") }}</h6>
-                            <div class="border rounded p-3 bg-light" style="white-space: pre-wrap;">{{ aiReportResult.aiAnalysis }}</div>
+                            <div class="border rounded p-3 bg-light ai-analysis-html" v-html="aiAnalysisHtml" />
                         </div>
                     </div>
                 </div>
@@ -170,6 +170,7 @@ import Pagination from "v-pagination-3";
 import Confirm from "../components/Confirm.vue";
 import axios from "axios";
 import { Modal } from "bootstrap";
+import { marked } from "marked";
 
 export default {
     components: {
@@ -207,6 +208,12 @@ export default {
         },
         tableColumnCount() {
             return this.showGroupColumn ? 5 : 4;
+        },
+        aiAnalysisHtml() {
+            if (!this.aiReportResult?.aiAnalysis) {
+                return "";
+            }
+            return marked(this.aiReportResult.aiAnalysis);
         },
     },
     watch: {
@@ -445,5 +452,46 @@ table {
 .ai-report-content {
     max-height: 60vh;
     overflow-y: auto;
+}
+
+.ai-analysis-html {
+    h1, h2, h3, h4, h5, h6 {
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+        color: inherit;
+    }
+
+    p {
+        margin-bottom: 0.5rem;
+    }
+
+    ul, ol {
+        padding-left: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    li + li {
+        margin-top: 0.25rem;
+    }
+
+    strong {
+        font-weight: 600;
+    }
+
+    code {
+        background-color: rgba(0, 0, 0, 0.1);
+        padding: 0.15rem 0.3rem;
+        border-radius: 0.25rem;
+        font-size: 0.9em;
+    }
+
+    .dark & {
+        background-color: $dark-bg2 !important;
+        color: $dark-font-color;
+
+        code {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    }
 }
 </style>
