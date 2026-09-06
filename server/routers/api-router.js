@@ -17,7 +17,8 @@ const { makeBadge } = require("badge-maker");
 const { Prometheus } = require("../prometheus");
 const Database = require("../database");
 const { UptimeCalculator } = require("../uptime-calculator");
-const { Settings } = require("../settings");
+const { Settings } = require("./settings");
+const axios = require("axios");
 
 let router = express.Router();
 
@@ -632,5 +633,112 @@ async function isMonitorPublic(monitorID) {
     );
     return !!publicMonitor;
 }
+
+router.get("/api/ai-report", async (request, response) => {
+    allowAllOrigin(response);
+
+    try {
+        const sqlHourOffset = Database.sqlHourOffset();
+        const heartbeats = await R.getAll(
+            `
+            SELECT h.monitor_id, h.status, h.ping, h.time, m.name as monitor_name
+            FROM heartbeat h
+            JOIN monitor m ON h.monitor_id = m.id
+            WHERE h.time > ${sqlHourOffset}
+            ORDER BY h.monitor_id ASC, h.time ASC
+            `,
+            [-168]
+        );
+
+        const monitorStats = {};
+        const monitorOrder = [];
+
+        for (const beat of heartbeats) {
+            const id = beat.monitor_id;
+
+            if (!(id in monitorStats)) {
+                monitorStats[id] = {
+                    id,
+                    name: beat.monitor_name,
+                    total: 0,
+                    up: 0,
+                    down: 0,
+                    pending: 0,
+                    maintenance: 0,
+                    unknown: 0,
+                    pingSum: 0,
+                    pingCount: 0,
+                    downEvents: 0,
+                    lastStatus: null,
+                };
+                monitorOrder.push(id);
+            }
+
+            const stats = monitorStats[id];
+            stats.total++;
+
+            if (beat.status === UP) {
+                stats.up++;
+                stats.pingSum += beat.ping || 0;
+                stats.pingCount++;
+            } else if (beat.status === DOWN) {
+                stats.down++;
+                if (stats.lastStatus !== DOWN) {
+                    stats.downEvents++;
+                }
+            } else if (beat.status === PENDING) {
+                stats.pending++;
+            } else if (beat.status === MAINTENANCE) {
+                stats.maintenance++;
+            } else {
+                stats.unknown++;
+            }
+
+            stats.lastStatus = beat.status;
+        }
+
+        const report = monitorOrder.map((id) => {
+            const s = monitorStats[id];
+            const uptimePercent = s.total > 0 ? ((s.up + s.maintenance) / s.total) * 100 : 0;
+            const avgPing = s.pingCount > 0 ? Math.round(s.pingSum / s.pingCount) : 0;
+
+            return {
+                id: s.id,
+                name: s.name,
+                totalBeats: s.total,
+                uptimePercent: parseFloat(uptimePercent.toFixed(2)),
+                downEvents: s.downEvents,
+                avgPing,
+                statusCounts: {
+                    up: s.up,
+                    down: s.down,
+                    pending: s.pending,
+                    maintenance: s.maintenance,
+                    unknown: s.unknown,
+                },
+            };
+        });
+
+        const totalMonitors = report.length;
+        const avgUptime = totalMonitors > 0 ? report.reduce((sum, m) => sum + m.uptimePercent, 0) / totalMonitors : 0;
+        const totalDownEvents = report.reduce((sum, m) => sum + m.downEvents, 0);
+
+        response.json({
+            ok: true,
+            data: {
+                generatedAt: dayjs().toISOString(),
+                period: "7 days",
+                summary: {
+                    totalMonitors,
+                    avgUptime: parseFloat(avgUptime.toFixed(2)),
+                    totalDownEvents,
+                },
+                monitors: report,
+            },
+        });
+    } catch (error) {
+        sendHttpError(response, error.message);
+    }
+});
 
 module.exports = router;
