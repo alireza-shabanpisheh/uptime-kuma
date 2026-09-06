@@ -17,7 +17,7 @@ const { makeBadge } = require("badge-maker");
 const { Prometheus } = require("../prometheus");
 const Database = require("../database");
 const { UptimeCalculator } = require("../uptime-calculator");
-const { Settings } = require("./settings");
+const { Settings } = require("../settings");
 const axios = require("axios");
 
 let router = express.Router();
