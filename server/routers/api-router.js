@@ -1,3 +1,4 @@
+require("dotenv").config();
 let express = require("express");
 const {
     allowDevAllOrigin,
@@ -755,34 +756,49 @@ router.get("/api/ai-report", async (request, response) => {
         ];
         const prompt = promptLines.join("\n");
 
-        const openRouterResponse = await axios.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            {
-                model: "google/gemini-flash-1.5",
-                messages: [
-                    {
-                        role: "user",
-                        content: prompt,
-                    },
-                ],
-                max_tokens: 1024,
-                temperature: 0.3,
-            },
-            {
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${openRouterApiKey}`,
-                },
-                timeout: 60000,
-            }
-        );
+        let aiMessage = null;
+        let aiWarning = null;
 
-        const aiMessage = openRouterResponse.data?.choices?.[0]?.message?.content || "No analysis generated.";
+        try {
+            const openRouterResponse = await axios.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {
+                    model: "meta-llama/llama-3.1-8b-instruct:free",
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt,
+                        },
+                    ],
+                    max_tokens: 1024,
+                    temperature: 0.3,
+                },
+                {
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${openRouterApiKey}`,
+                    },
+                    timeout: 60000,
+                }
+            );
+
+            aiMessage = openRouterResponse.data?.choices?.[0]?.message?.content || "No analysis generated.";
+        } catch (aiError) {
+            console.error("OpenRouter API error:", aiError.message);
+
+            if (aiError.response) {
+                console.error("OpenRouter response status:", aiError.response.status);
+                console.error("OpenRouter response data:", JSON.stringify(aiError.response.data, null, 2));
+            }
+
+            aiWarning = `AI analysis failed: ${aiError.message}. Stats are still available below.`;
+        }
 
         response.json({
             ok: true,
             data: statsPayload,
             aiAnalysis: aiMessage,
+            warning: aiWarning,
         });
     } catch (error) {
         sendHttpError(response, error.message);
