@@ -132,7 +132,7 @@
 import Confirm from "../components/Confirm.vue";
 import MonitorListItem from "../components/MonitorListItem.vue";
 import MonitorListFilter from "./MonitorListFilter.vue";
-import { getMonitorRelativeURL } from "../util.ts";
+import { getMonitorRelativeURL, UP, DOWN, PENDING, MAINTENANCE } from "../util.ts";
 
 export default {
     components: {
@@ -307,9 +307,11 @@ export default {
     },
     mounted() {
         window.addEventListener("scroll", this.onScroll);
+        this.$root.emitter.on("quickStatsFilter", this.onQuickStatsFilter);
     },
     beforeUnmount() {
         window.removeEventListener("scroll", this.onScroll);
+        this.$root.emitter.off("quickStatsFilter", this.onQuickStatsFilter);
     },
     methods: {
         /**
@@ -337,6 +339,75 @@ export default {
          */
         clearSearchText() {
             this.searchText = "";
+        },
+        /**
+         * Handle quick stats filter events from DashboardHome
+         * @param {string} filterType - The type of filter to apply
+         * @returns {void}
+         */
+        onQuickStatsFilter(filterType) {
+            let newFilter = {
+                ...this.filterState,
+            };
+
+            switch (filterType) {
+                case "up":
+                    this.toggleStatusFilter(newFilter, 1);
+                    break;
+                case "down":
+                    this.toggleStatusFilter(newFilter, 0);
+                    break;
+                case "maintenance":
+                    this.toggleStatusFilter(newFilter, 3);
+                    break;
+                case "paused":
+                    this.toggleActiveFilter(newFilter, false);
+                    break;
+                case "unknown":
+                    if (newFilter.status?.includes("unknown")) {
+                        newFilter.status = newFilter.status.filter((item) => item !== "unknown");
+                    } else {
+                        newFilter.status = ["unknown"];
+                    }
+                    this.filterState = newFilter;
+                    break;
+            }
+        },
+        /**
+         * Toggle a status filter value
+         * @param {object} newFilter - The filter state to modify
+         * @param {number} status - The status value to toggle
+         * @returns {void}
+         */
+        toggleStatusFilter(newFilter, status) {
+            if (newFilter.status == null) {
+                newFilter.status = [status];
+            } else {
+                if (newFilter.status.includes(status)) {
+                    newFilter.status = newFilter.status.filter((item) => item !== status);
+                } else {
+                    newFilter.status.push(status);
+                }
+            }
+            this.filterState = newFilter;
+        },
+        /**
+         * Toggle an active filter value
+         * @param {object} newFilter - The filter state to modify
+         * @param {boolean} active - The active value to toggle
+         * @returns {void}
+         */
+        toggleActiveFilter(newFilter, active) {
+            if (newFilter.active == null) {
+                newFilter.active = [active];
+            } else {
+                if (newFilter.active.includes(active)) {
+                    newFilter.active = newFilter.active.filter((item) => item !== active);
+                } else {
+                    newFilter.active.push(active);
+                }
+            }
+            this.filterState = newFilter;
         },
         /**
          * Update the MonitorList Filter
@@ -555,6 +626,11 @@ export default {
                     monitor.status = this.$root.lastHeartbeatList[monitor.id].status;
                 }
                 statusMatch = this.filterState.status.includes(monitor.status);
+
+                if (!statusMatch && this.filterState.status.includes("unknown")) {
+                    const beat = this.$root.lastHeartbeatList[monitor.id];
+                    statusMatch = !beat || beat.status == null || ![UP, DOWN, PENDING, MAINTENANCE].includes(beat.status);
+                }
             }
 
             // filter by active

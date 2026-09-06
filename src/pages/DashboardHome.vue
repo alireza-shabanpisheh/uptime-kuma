@@ -9,29 +9,33 @@
                 <div class="row">
                     <div class="col">
                         <h3>{{ $t("Up") }}</h3>
-                        <span class="num" :class="$root.stats.up === 0 && 'text-secondary'">
+                        <span class="num cursor-pointer" :class="$root.stats.up === 0 && 'text-secondary'" @click="onQuickStatClick('up')">
                             {{ $root.stats.up }}
                         </span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("Down") }}</h3>
-                        <span class="num" :class="$root.stats.down > 0 ? 'text-danger' : 'text-secondary'">
+                        <span class="num cursor-pointer" :class="$root.stats.down > 0 ? 'text-danger' : 'text-secondary'" @click="onQuickStatClick('down')">
                             {{ $root.stats.down }}
                         </span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("Maintenance") }}</h3>
-                        <span class="num" :class="$root.stats.maintenance > 0 ? 'text-maintenance' : 'text-secondary'">
+                        <span class="num cursor-pointer" :class="$root.stats.maintenance > 0 ? 'text-maintenance' : 'text-secondary'" @click="onQuickStatClick('maintenance')">
                             {{ $root.stats.maintenance }}
                         </span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("Unknown") }}</h3>
-                        <span class="num text-secondary">{{ $root.stats.unknown }}</span>
+                        <span class="num cursor-pointer text-secondary" @click="onQuickStatClick('unknown')">
+                            {{ $root.stats.unknown }}
+                        </span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("pauseDashboardHome") }}</h3>
-                        <span class="num text-secondary">{{ $root.stats.pause }}</span>
+                        <span class="num cursor-pointer text-secondary" @click="onQuickStatClick('paused')">
+                            {{ $root.stats.pause }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -184,6 +188,14 @@ export default {
 
     methods: {
         /**
+         * Emits a quick stats filter event when a stat is clicked.
+         * @param {string} filterType - The type of filter to apply
+         * @returns {void}
+         */
+        onQuickStatClick(filterType) {
+            this.$root.emitter.emit("quickStatsFilter", filterType);
+        },
+        /**
          * Returns the group (parent) name for a monitor, or empty string if none.
          * @param {number} monitorID - The monitor ID.
          * @returns {string} The group name or empty string.
@@ -313,6 +325,10 @@ export default {
     color: $primary;
     font-weight: bold;
     display: block;
+}
+
+.cursor-pointer {
+    cursor: pointer;
 }
 
 .shadow-box {
