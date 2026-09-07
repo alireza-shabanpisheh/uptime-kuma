@@ -1,9 +1,15 @@
 <template>
     <transition ref="tableContainer" name="slide-fade" appear>
         <div v-if="$route.name === 'DashboardHome'">
-            <h1 class="mb-3">
-                {{ $t("Quick Stats") }}
-            </h1>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="mb-0">
+                    {{ $t("Quick Stats") }}
+                </h1>
+                <button class="btn btn-primary btn-sm" :disabled="aiReportLoading" @click="generateAiReport">
+                    <font-awesome-icon icon="wand-magic-sparkles" class="me-1" />
+                    {{ aiReportLoading ? $t("Generating...") : $t("Generate AI Report") }}
+                </button>
+            </div>
 
             <div class="shadow-box big-padding text-center mb-3">
                 <div class="row">
@@ -113,6 +119,47 @@
     >
         {{ $t("clearAllEventsMsg") }}
     </Confirm>
+    <div ref="aiReportModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{ $t("Weekly AI Service Report") }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" :aria-label="$t('Close')" />
+                </div>
+                <div class="modal-body">
+                    <div v-if="aiReportLoading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">{{ $t("Loading...") }}</span>
+                        </div>
+                        <p class="mt-2">{{ $t("Generating...") }}</p>
+                    </div>
+                    <div v-else-if="aiReportError" class="alert alert-danger">
+                        {{ aiReportError }}
+                    </div>
+                    <div v-else-if="aiReportResult" class="ai-report-content">
+                        <div v-if="aiReportResult.warning" class="alert alert-warning">
+                            {{ aiReportResult.warning }}
+                        </div>
+                        <div v-if="aiReportResult.data" class="mb-3">
+                            <h6>{{ $t("Summary") }}</h6>
+                            <ul>
+                                <li>{{ $t("Total Monitors") }}: {{ aiReportResult.data.summary.totalMonitors }}</li>
+                                <li>{{ $t("Average Uptime") }}: {{ aiReportResult.data.summary.avgUptime }}%</li>
+                                <li>{{ $t("Total Down Events") }}: {{ aiReportResult.data.summary.totalDownEvents }}</li>
+                            </ul>
+                        </div>
+                        <div v-if="aiReportResult.aiAnalysis" class="mt-3">
+                            <h6>{{ $t("AI Analysis") }}</h6>
+                            <div class="p-3 bg-light ai-analysis-html" v-html="aiAnalysisHtml" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ $t("Close") }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <router-view ref="child" />
 </template>
 
@@ -121,6 +168,9 @@ import Status from "../components/Status.vue";
 import Datetime from "../components/Datetime.vue";
 import Pagination from "v-pagination-3";
 import Confirm from "../components/Confirm.vue";
+import axios from "axios";
+import { Modal } from "bootstrap";
+import { marked } from "marked";
 
 export default {
     components: {
@@ -147,6 +197,9 @@ export default {
             importantHeartBeatListLength: 0,
             displayedRecords: [],
             clearingAllEvents: false,
+            aiReportLoading: false,
+            aiReportResult: null,
+            aiReportError: null,
         };
     },
     computed: {
@@ -155,6 +208,12 @@ export default {
         },
         tableColumnCount() {
             return this.showGroupColumn ? 5 : 4;
+        },
+        aiAnalysisHtml() {
+            if (!this.aiReportResult?.aiAnalysis) {
+                return "";
+            }
+            return marked(this.aiReportResult.aiAnalysis);
         },
     },
     watch: {
@@ -178,12 +237,18 @@ export default {
 
         window.addEventListener("resize", this.updatePerPage);
         this.updatePerPage();
+
+        this.aiReportModal = new Modal(this.$refs.aiReportModal);
     },
 
     beforeUnmount() {
         this.$root.emitter.off("newImportantHeartbeat", this.onNewImportantHeartbeat);
 
         window.removeEventListener("resize", this.updatePerPage);
+
+        if (this.aiReportModal) {
+            this.aiReportModal.dispose();
+        }
     },
 
     methods: {
@@ -313,6 +378,26 @@ export default {
                 );
             }
         },
+        /**
+         * Fetch the AI report from the backend and display it in a modal
+         * @returns {Promise<void>}
+         */
+        async generateAiReport() {
+            this.aiReportLoading = true;
+            this.aiReportError = null;
+            this.aiReportResult = null;
+
+            try {
+                const res = await axios.get("/api/ai-report");
+                this.aiReportResult = res.data;
+                this.aiReportModal.show();
+            } catch (error) {
+                this.aiReportError = error.message || this.$t("Failed to generate AI report");
+                this.aiReportModal.show();
+            } finally {
+                this.aiReportLoading = false;
+            }
+        },
     },
 };
 </script>
@@ -362,5 +447,51 @@ table {
 
 .table-wrapper {
     overflow-x: auto;
+}
+
+.ai-report-content {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.ai-analysis-html {
+    h1, h2, h3, h4, h5, h6 {
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+        color: inherit;
+    }
+
+    p {
+        margin-bottom: 0.5rem;
+    }
+
+    ul, ol {
+        padding-left: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+
+    li + li {
+        margin-top: 0.25rem;
+    }
+
+    strong {
+        font-weight: 600;
+    }
+
+    code {
+        background-color: rgba(0, 0, 0, 0.1);
+        padding: 0.15rem 0.3rem;
+        border-radius: 0.25rem;
+        font-size: 0.9em;
+    }
+
+    .dark & {
+        background-color: $dark-bg2 !important;
+        color: $dark-font-color;
+
+        code {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+    }
 }
 </style>

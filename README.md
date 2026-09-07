@@ -34,6 +34,8 @@ It is a temporary live demo, all data will be deleted after 10 minutes. Sponsore
 - Certificate info
 - Proxy support
 - 2FA support
+- Clickable Quick Stats elements with monitor filter integration
+- AI-powered weekly service report generation via OpenRouter
 
 ## 🔧 How to Install
 
