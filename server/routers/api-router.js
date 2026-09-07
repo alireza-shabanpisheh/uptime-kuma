@@ -763,7 +763,7 @@ router.get("/api/ai-report", async (request, response) => {
             const openRouterResponse = await axios.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 {
-                    model: "meta-llama/llama-3.1-8b-instruct:free",
+                    model: "openrouter/free",
                     messages: [
                         {
                             role: "user",

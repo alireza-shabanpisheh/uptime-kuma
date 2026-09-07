@@ -150,7 +150,7 @@
                         </div>
                         <div v-if="aiReportResult.aiAnalysis" class="mt-3">
                             <h6>{{ $t("AI Analysis") }}</h6>
-                            <div class="border rounded p-3 bg-light ai-analysis-html" v-html="aiAnalysisHtml" />
+                            <div class="p-3 bg-light ai-analysis-html" v-html="aiAnalysisHtml" />
                         </div>
                     </div>
                 </div>
