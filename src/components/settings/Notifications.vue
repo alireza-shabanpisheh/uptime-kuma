@@ -19,6 +19,9 @@
             <button class="btn btn-primary me-2" type="button" @click="$refs.notificationDialog.show()">
                 {{ $t("Setup Notification") }}
             </button>
+            <button class="btn btn-primary" type="button" @click="downloadNotificationList">
+                {{ $t("Download Notification List") }}
+            </button>
         </div>
 
         <div class="my-4 pt-4">
@@ -270,6 +273,22 @@ export default {
                     this.toastErrorTimeoutSecs = parsedTimeout > 0 ? parsedTimeout / 1000 : parsedTimeout;
                 }
             }
+        },
+        /**
+         * Download the notification list as a JSON file.
+         * @returns {void}
+         */
+        downloadNotificationList() {
+            const data = JSON.stringify(this.$root.notificationList, null, 2);
+            const blob = new Blob([data], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "notifications.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         },
     },
 };
