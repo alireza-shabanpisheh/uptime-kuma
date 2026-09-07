@@ -770,7 +770,7 @@ router.get("/api/ai-report", async (request, response) => {
                             content: prompt,
                         },
                     ],
-                    max_tokens: 1024,
+                    max_tokens: 2048,
                     temperature: 0.3,
                 },
                 {
@@ -784,11 +784,16 @@ router.get("/api/ai-report", async (request, response) => {
 
             const choice = openRouterResponse.data?.choices?.[0];
             const content = choice?.message?.content?.trim();
+            const finishReason = choice?.finish_reason;
 
             const systemKeywords = ["user safety", "content filtered", "moderation", "safety check"];
             const isSystemMessage = content && systemKeywords.some((keyword) => content.toLowerCase().includes(keyword));
 
             if (content && !isSystemMessage) {
+                if (finishReason === "length") {
+                    console.warn("OpenRouter response may be truncated due to token limit. Full response:", JSON.stringify(openRouterResponse.data, null, 2));
+                    aiWarning = "AI analysis may be incomplete due to length limits. Stats are still available below.";
+                }
                 aiMessage = content;
             } else {
                 console.warn("OpenRouter returned empty or system message. Full response:", JSON.stringify(openRouterResponse.data, null, 2));
