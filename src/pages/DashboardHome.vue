@@ -5,7 +5,7 @@
                 <h1 class="mb-0">
                     {{ $t("Quick Stats") }}
                 </h1>
-                <button class="btn btn-primary btn-sm" @click="generateAiReport" :disabled="aiReportLoading">
+                <button class="btn btn-primary btn-sm" :disabled="aiReportLoading" @click="generateAiReport">
                     <font-awesome-icon icon="wand-magic-sparkles" class="me-1" />
                     {{ aiReportLoading ? $t("Generating...") : $t("Generate AI Report") }}
                 </button>

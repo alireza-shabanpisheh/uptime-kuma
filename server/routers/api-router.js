@@ -782,7 +782,19 @@ router.get("/api/ai-report", async (request, response) => {
                 }
             );
 
-            aiMessage = openRouterResponse.data?.choices?.[0]?.message?.content || "No analysis generated.";
+            const choice = openRouterResponse.data?.choices?.[0];
+            const content = choice?.message?.content?.trim();
+
+            const systemKeywords = ["user safety", "content filtered", "moderation", "safety check"];
+            const isSystemMessage = content && systemKeywords.some((keyword) => content.toLowerCase().includes(keyword));
+
+            if (content && !isSystemMessage) {
+                aiMessage = content;
+            } else {
+                console.warn("OpenRouter returned empty or system message. Full response:", JSON.stringify(openRouterResponse.data, null, 2));
+                aiMessage = null;
+                aiWarning = "AI analysis returned empty content. Stats are still available below.";
+            }
         } catch (aiError) {
             console.error("OpenRouter API error:", aiError.message);
 
